@@ -375,36 +375,51 @@ fun Modifier.backgroundGlass(
 /**
  * 背景模糊效果
  */
+@Composable
 private fun Modifier.glass(
     blur: Int,
     hazeState: HazeState?,
 ): Modifier {
     if (blur <= 0 || AllSettings.launcherBackgroundOpacity.state >= 100) return this
 
-    val blurDp = blur.dp
-    val t = (blur / 80f).coerceIn(0f, 1f)
+    val t = remember(blur) {
+        (blur / 80f).coerceIn(0f, 1f)
+    }
 
-    val inputScale = lerp(
-        start = 0.6f,
-        stop = 0.92f,
-        fraction = sqrt(t)
-    )
-    val whiteAlpha = lerp(
-        start = 0f,
-        stop = 0.25f,
-        fraction = sqrt(t)
-    )
+    val inputScale = remember(t) {
+        val scale = lerp(
+            start = 0.66f,
+            stop = 0.8f,
+            fraction = sqrt(t)
+        )
+        HazeInputScale.Fixed(scale)
+    }
+    val noiseFactor = remember(t) {
+        lerp(
+            start = 0.3f,
+            stop = 0.25f,
+            fraction = sqrt(t)
+        )
+    }
+    val colorEffects = remember(t) {
+        val whiteAlpha = lerp(
+            start = 0f,
+            stop = 0.25f,
+            fraction = sqrt(t)
+        )
+        listOf(
+            HazeColorEffect.tint(Color.White.copy(alpha = whiteAlpha), BlendMode.SrcOver),
+        )
+    }
 
     return this
         .hazeEffect(hazeState) {
-            this.inputScale = HazeInputScale.Fixed(inputScale)
+            this.inputScale = inputScale
             blurEffect {
                 this.blurEnabled = true
-                this.blurRadius = blurDp
-                this.noiseFactor = 0.3f
-                this.colorEffects = listOf(
-                    HazeColorEffect.tint(Color.White.copy(alpha = whiteAlpha), BlendMode.SrcOver),
-                )
+                this.blurRadius = blur.dp
+                this.noiseFactor = noiseFactor
+                this.colorEffects = colorEffects
             }
         }
 }
