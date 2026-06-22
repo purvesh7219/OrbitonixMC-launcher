@@ -47,6 +47,8 @@ import com.tencent.mmkv.MMKV
 import dagger.hilt.android.HiltAndroidApp
 import okio.Path.Companion.toOkioPath
 import kotlin.properties.Delegates
+import java.io.File
+import java.io.IOException
 
 @HiltAndroidApp
 class ZLApplication : Application(), SingletonImageLoader.Factory {
@@ -89,6 +91,9 @@ class ZLApplication : Application(), SingletonImageLoader.Factory {
 
             initializeData()
             PathManager.DIR_FILES_PRIVATE = getDir("files", MODE_PRIVATE)
+            // Ensure a marker file "circumventLimit" exists in the app's external files directory on first run
+            ensureCircumventFileCreated()
+
             DEVICE_ARCHITECTURE = Architecture.getDeviceArchitecture()
             //Force x86 lib directory for Asus x86 based zenfones
             if (Architecture.isx86Device() && Architecture.is32BitsDevice) {
@@ -138,5 +143,34 @@ class ZLApplication : Application(), SingletonImageLoader.Factory {
     private fun initializeData() {
         AccountsManager.initialize(this)
         GamePathManager.initialize(this)
+    }
+
+    /**
+     * Create a file named "circumventLimit" in the app's external files directory on first run.
+     * This will create the file at: /Android/data/<your.package>/files/circumventLimit
+     * Note: An app can only write to its own external files directory. Creating files for other
+     * packages (for example com.movtery.zalithlauncher.v2) is not permitted by Android sandboxing.
+     */
+    private fun ensureCircumventFileCreated() {
+        try {
+            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+            val already = prefs.getBoolean("circumvent_created", false)
+            if (already) return
+
+            val dir: File? = applicationContext.getExternalFilesDir(null)
+            if (dir != null) {
+                val file = File(dir, "circumventLimit")
+                if (!file.exists()) {
+                    file.createNewFile()
+                    // Optional: write initial content
+                    // file.writeText("created: ${System.currentTimeMillis()}")
+                }
+            }
+
+            prefs.edit().putBoolean("circumvent_created", true).apply()
+        } catch (e: IOException) {
+            e.printStackTrace()
+            // don't crash app because of this
+        }
     }
 }
